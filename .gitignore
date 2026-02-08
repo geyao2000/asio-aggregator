@@ -1,0 +1,8 @@
+# 过滤掉编译输出和 Docker 缓存
+node_modules/
+build/
+bin/
+*.o
+*.exe
+.docker/
+.env
