@@ -52,6 +52,20 @@ add_executable(bbo_client
 )
 target_link_libraries(bbo_client gRPC::grpc++ protobuf::libprotobuf)
 
+add_executable(volume_bands_client
+  src/volume_bands_client.cpp
+  ${CMAKE_CURRENT_BINARY_DIR}/aggregator.pb.cc
+  ${CMAKE_CURRENT_BINARY_DIR}/aggregator.grpc.pb.cc
+)
+target_link_libraries(volume_bands_client gRPC::grpc++ protobuf::libprotobuf)
+
+add_executable(price_bands_client
+  src/price_bands_client.cpp
+  ${CMAKE_CURRENT_BINARY_DIR}/aggregator.pb.cc
+  ${CMAKE_CURRENT_BINARY_DIR}/aggregator.grpc.pb.cc
+)
+target_link_libraries(price_bands_client gRPC::grpc++ protobuf::libprotobuf)
+
 # Similar for volume_bands_client and price_bands_client
 
 # add_executable(tests src/tests.cpp ... ) 

@@ -1,5 +1,6 @@
 #include <grpcpp/grpcpp.h>
 #include "aggregator.grpc.pb.h"
+#include "aggregator.pb.h"
 #include <iostream>
 #include <vector>
 
@@ -7,71 +8,85 @@ using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
 using aggregator::AggregatorService;
-using aggregator::Empty;
-using aggregator::OrderBook;
+using aggregator::SubscribeRequest;
+using aggregator::BookUpdate;
 
 class VolumeBandsClient {
 public:
-  VolumeBandsClient(std::shared_ptr<Channel> channel) : stub_(AggregatorService::NewStub(channel)) {}
+    VolumeBandsClient(std::shared_ptr<Channel> channel)
+        : stub_(AggregatorService::NewStub(channel)) {}
 
-  void Subscribe() {
-    ClientContext context;
-    Empty request;
-    std::unique_ptr<grpc::ClientReader<OrderBook>> reader(stub_->SubscribeOrderBook(&context, request));
-    OrderBook book;
-    while (reader->Read(&book)) {
-      if (book.bids().empty() || book.asks().empty()) continue;
+    void Subscribe() {
+        ClientContext context;
+        SubscribeRequest request;
+        request.set_symbol("BTCUSDT");
 
-      std::vector<double> bands = {1e6, 5e6, 10e6, 25e6, 50e6};
+        std::unique_ptr<grpc::ClientReader<BookUpdate>> reader(
+            stub_->SubscribeBook(&context, request));
 
-      // Bids
-      double cum_bid = 0;
-      double last_bid_price = 0;
-      auto bid_bands = bands;
-      for (const auto& entry : book.bids()) {
-        cum_bid += entry.quantity() * entry.price();
-        last_bid_price = entry.price();
-        for (auto it = bid_bands.begin(); it != bid_bands.end(); ) {
-          if (cum_bid >= *it) {
-            std::cout << "Bid price for " << *it / 1e6 << "M USD: " << last_bid_price << std::endl;
-            it = bid_bands.erase(it);
-          } else {
-            ++it;
-          }
+        BookUpdate update;
+        while (reader->Read(&update)) {
+            if (update.bids().empty() || update.asks().empty()) continue;
+
+            std::vector<double> bands = {1000000.0, 5000000.0, 10000000.0, 25000000.0, 50000000.0};
+
+            // Bids (从最高价开始累计 notional)
+            double cum_bid_notional = 0.0;
+            double last_bid_price = 0.0;
+            auto remaining_bands = bands;
+            for (const auto& level : update.bids()) {
+                cum_bid_notional += level.quantity() * level.price();
+                last_bid_price = level.price();
+
+                auto it = remaining_bands.begin();
+                while (it != remaining_bands.end()) {
+                    if (cum_bid_notional >= *it) {
+                        std::cout << "[Volume Bands] Bid price for " << *it / 1e6 << "M USD: "
+                                  << last_bid_price << std::endl;
+                        it = remaining_bands.erase(it);
+                    } else {
+                        ++it;
+                    }
+                }
+                if (remaining_bands.empty()) break;
+            }
+
+            // Asks (从最低价开始累计 notional)
+            double cum_ask_notional = 0.0;
+            double last_ask_price = 0.0;
+            auto remaining_ask_bands = bands;
+            for (const auto& level : update.asks()) {
+                cum_ask_notional += level.quantity() * level.price();
+                last_ask_price = level.price();
+
+                auto it = remaining_ask_bands.begin();
+                while (it != remaining_ask_bands.end()) {
+                    if (cum_ask_notional >= *it) {
+                        std::cout << "[Volume Bands] Ask price for " << *it / 1e6 << "M USD: "
+                                  << last_ask_price << std::endl;
+                        it = remaining_ask_bands.erase(it);
+                    } else {
+                        ++it;
+                    }
+                }
+                if (remaining_ask_bands.empty()) break;
+            }
         }
-        if (bid_bands.empty()) break;
-      }
 
-      // Asks
-      double cum_ask = 0;
-      double last_ask_price = 0;
-      auto ask_bands = bands;
-      for (const auto& entry : book.asks()) {
-        cum_ask += entry.quantity() * entry.price();
-        last_ask_price = entry.price();
-        for (auto it = ask_bands.begin(); it != ask_bands.end(); ) {
-          if (cum_ask >= *it) {
-            std::cout << "Ask price for " << *it / 1e6 << "M USD: " << last_ask_price << std::endl;
-            it = ask_bands.erase(it);
-          } else {
-            ++it;
-          }
+        Status status = reader->Finish();
+        if (!status.ok()) {
+            std::cerr << "RPC failed: " << status.error_message() << std::endl;
         }
-        if (ask_bands.empty()) break;
-      }
     }
-    Status status = reader->Finish();
-    if (!status.ok()) {
-      std::cout << "Subscribe RPC failed" << std::endl;
-    }
-  }
 
 private:
-  std::unique_ptr<AggregatorService::Stub> stub_;
+    std::unique_ptr<AggregatorService::Stub> stub_;
 };
 
 int main(int argc, char** argv) {
-  VolumeBandsClient client(grpc::CreateChannel("localhost:50051", grpc::InsecureChannelCredentials()));
-  client.Subscribe();
-  return 0;
+    auto channel = grpc::CreateChannel("localhost:50051",
+                                       grpc::InsecureChannelCredentials());
+    VolumeBandsClient client(channel);
+    client.Subscribe();
+    return 0;
 }
