@@ -1,9 +1,9 @@
 #include <boost/asio/io_context.hpp>
-#include "Aggregator.h"
+#include "aggregator.h"
 
 int main() {
     boost::asio::io_context ioc;
-    Aggregator agg(ioc);
+    aggregator agg(ioc);
     agg.start();
     ioc.run();
     return 0;

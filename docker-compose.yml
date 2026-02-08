@@ -1,0 +1,21 @@
+version: '3'
+services:
+  aggregator:
+    build: .
+    ports:
+      - "50051:50051"
+  bbo_client:
+    build: .
+    command: bbo_client
+    depends_on:
+      - aggregator
+  volume_bands_client:
+    build: .
+    command: volume_bands_client
+    depends_on:
+      - aggregator
+  price_bands_client:
+    build: .
+    command: price_bands_client
+    depends_on:
+      - aggregator

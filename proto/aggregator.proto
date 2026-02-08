@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package aggregator;
+
+message Level {
+  double price = 1;
+  double quantity = 2;
+}
+
+message BookUpdate {
+  int64 timestamp_ms = 1;
+  repeated Level bids = 2;      // 价格降序
+  repeated Level asks = 3;      // 价格升序
+}
+
+message SubscribeRequest {
+  string symbol = 1;
+}
+
+service AggregatorService {
+  rpc SubscribeBook(SubscribeRequest) returns (stream BookUpdate);
+}

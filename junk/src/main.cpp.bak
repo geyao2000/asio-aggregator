@@ -1,0 +1,19 @@
+#include "binance_connector.h"
+#include <boost/asio.hpp>
+#include <boost/asio/ssl.hpp>
+#include <iostream>
+
+int main() {
+    try {
+        boost::asio::io_context ioc;
+        boost::asio::ssl::context ssl_ctx(boost::asio::ssl::context::tls_client);
+        ssl_ctx.set_default_verify_paths();
+
+        auto conn = std::make_shared<BinanceConnector>(ioc, ssl_ctx);
+        conn->start();
+
+        ioc.run();
+    } catch (const std::exception& e) {
+        std::cerr << "Fatal error: " << e.what() << std::endl;
+    }
+}

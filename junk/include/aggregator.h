@@ -10,4 +10,6 @@ public:
         // 验证阶段：打印收到的通知
         // std::cout << "[Aggregator] Update notified from: " << conn->name() << std::endl;
     }
+    friend class AggregatorTest_MergeNoCrossedBook_Test;
+    friend class AggregatorTest_MergeHandlesCrossedData_Test;
 };

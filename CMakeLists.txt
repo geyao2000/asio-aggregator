@@ -1,48 +1,58 @@
-cmake_minimum_required(VERSION 3.10)
-project(asio_aggregator CXX)
+cmake_minimum_required(VERSION 3.16)
+project(aggregator_project)
 
-# 设置 C++ 标准
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# 1. 查找依赖库
-# 查找 Boost (需要 System 和 Thread 组件)
 find_package(Boost REQUIRED COMPONENTS system thread)
-# 查找 OpenSSL (Beast SSL 必须)
 find_package(OpenSSL REQUIRED)
-# 查找 Threads (POSIX 线程)
-find_package(Threads REQUIRED)
+find_package(gRPC CONFIG REQUIRED)
+find_package(Protobuf REQUIRED)
+find_package(nlohmann_json 3.2.0 REQUIRED)
+# find_package(Catch2 REQUIRED) # For tests
 
-# 2. 包含头文件目录
-include_directories(include)
-
-# 3. 指定源文件
-# 假设你的文件名分别为:
-# src/main.cpp
-# src/connector.cpp
-# src/aggregator.cpp
-# src/binance_connector.cpp
-set(SOURCES 
-    src/main.cpp
-    src/connector.cpp
-    # src/Aggregator.cpp
-    src/binance_connector.cpp
+# Generate gRPC and Protobuf code
+add_custom_command(
+  OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/aggregator.pb.cc" "${CMAKE_CURRENT_BINARY_DIR}/aggregator.pb.h"
+         "${CMAKE_CURRENT_BINARY_DIR}/aggregator.grpc.pb.cc" "${CMAKE_CURRENT_BINARY_DIR}/aggregator.grpc.pb.h"
+  COMMAND protobuf::protoc
+  ARGS --grpc_out "${CMAKE_CURRENT_BINARY_DIR}" --cpp_out "${CMAKE_CURRENT_BINARY_DIR}"
+       -I "${CMAKE_SOURCE_DIR}/proto"
+       --plugin=protoc-gen-grpc="$<TARGET_FILE:gRPC::grpc_cpp_plugin>"
+       "${CMAKE_SOURCE_DIR}/proto/aggregator.proto"
+  DEPENDS "${CMAKE_SOURCE_DIR}/proto/aggregator.proto"
 )
 
-# 4. 创建可执行文件
-add_executable(aggregator_test ${SOURCES})
+include_directories("${CMAKE_CURRENT_BINARY_DIR}" include)
 
-# 5. 链接库
-target_link_libraries(aggregator_test
-    PRIVATE
-    Boost::system
-    Boost::thread
-    OpenSSL::SSL
-    OpenSSL::Crypto
-    Threads::Threads
+add_executable(aggregator
+  src/main.cpp
+  src/Aggregator.cpp
+  src/market_connector.cpp
+  src/binance_connector.cpp
+  src/okx_connector.cpp
+  src/bitget_connector.cpp
+  ${CMAKE_CURRENT_BINARY_DIR}/aggregator.pb.cc
+  ${CMAKE_CURRENT_BINARY_DIR}/aggregator.grpc.pb.cc
 )
 
-# 如果你使用的是系统安装的 nlohmann_json，取消下面行的注释
-# find_package(nlohmann_json REQUIRED)
-# target_link_libraries(aggregator_test PRIVATE nlohmann_json::nlohmann_json)
-# 如果是 header-only 且在 include 目录下则无需额外操作
+target_link_libraries(aggregator
+  Boost::system
+  Boost::thread
+  OpenSSL::SSL
+  OpenSSL::Crypto
+  gRPC::grpc++
+  protobuf::libprotobuf
+  nlohmann_json::nlohmann_json
+)
+
+add_executable(bbo_client
+  src/bbo_client.cpp
+  ${CMAKE_CURRENT_BINARY_DIR}/aggregator.pb.cc
+  ${CMAKE_CURRENT_BINARY_DIR}/aggregator.grpc.pb.cc
+)
+target_link_libraries(bbo_client gRPC::grpc++ protobuf::libprotobuf)
+
+# Similar for volume_bands_client and price_bands_client
+
+# add_executable(tests src/tests.cpp ... ) 
+# target_link_libraries(tests Catch2::Catch2 ... )

@@ -1,63 +1,50 @@
 #include "binance_connector.h"
+#include <nlohmann/json.hpp>
 #include <iostream>
 
 using json = nlohmann::json;
 
-void BinanceConnector::parse_message(const std::string& msg) {
-    std::string trimmed = msg;
-    // 去除空白字符
-    trimmed.erase(std::remove_if(trimmed.begin(), trimmed.end(), ::isspace), trimmed.end());
+// binance_connector::binance_connector(net::io_context& ioc, event_callback cb)
+//     : market_connector(ioc,
+//                        "Binance",
+//                        "stream.binance.com",
+//                        "9443",
+//                        "/ws/btcusdt@depth20@100ms",
+//                        cb) {}
 
-    if (trimmed == "pong" ||
-        trimmed == "{\"pong\":true}" ||
-        trimmed == "{\"event\":\"pong\"}" ||
-        trimmed.rfind("pong", 0) == 0) {  // 以 "pong" 开头兜底
-        std::cout << "[" << name_ << "] Ignored pong response" << std::endl;
-        return;  // 直接返回，不解析
+binance_connector::binance_connector(net::io_context& ioc, Aggregator* aggregator, std::string name, std::string host, std::string port, std::string path, event_callback cb)
+    : market_connector(ioc, aggregator, name, host, port, path, cb) {}        
+
+std::string binance_connector::subscription_message() const {
+    // Binance auto-subscribes via URL path, no message needed
+    return "";
+}
+
+void binance_connector::handle_message(const std::string& msg) {
+    // callback_("Binance", msg);
+    market_connector::handle_message(msg);  // Call base
+}
+
+void binance_connector::parse_message(const std::string& msg) {
+  try {
+    json j = json::parse(msg);
+    if (j.contains("lastUpdateId")) {
+      local_bids_.clear();
+      local_asks_.clear();
+
+      for (const auto& bid : j["bids"]) {
+        double price = std::stod(bid[0].get<std::string>());
+        double qty = std::stod(bid[1].get<std::string>());
+        local_bids_[price] = qty;
+      }
+
+      for (const auto& ask : j["asks"]) {
+        double price = std::stod(ask[0].get<std::string>());
+        double qty = std::stod(ask[1].get<std::string>());
+        local_asks_[price] = qty;
+      }
     }
-
-    try {
-        // std::cout << "[Binance Debug] Raw message: " << msg << std::endl;  // 可选：调试时打开
-
-        auto j = json::parse(msg);
-
-        // Binance Depth Stream 数据格式示例:
-        // {
-        //   "lastUpdateId": 160,
-        //   "bids": [ [ "0.0024", "10" ] ],
-        //   "asks": [ [ "0.0026", "100" ] ]
-        // }
-        
-        if (j.contains("bids") && j.contains("asks")) {
-            // 解析 Bids (买单)
-            // 注意：Binance 返回的是字符串数组 ["price", "quantity"]
-            for (const auto& bid : j["bids"]) {
-                double price = std::stod(bid[0].get<std::string>());
-                double qty = std::stod(bid[1].get<std::string>());
-                
-                if (qty == 0) {
-                    local_bids_.erase(price);
-                } else {
-                    local_bids_[price] = qty;
-                }
-            }
-
-            // 解析 Asks (卖单)
-            for (const auto& ask : j["asks"]) {
-                double price = std::stod(ask[0].get<std::string>());
-                double qty = std::stod(ask[1].get<std::string>());
-                
-                if (qty == 0) {
-                    local_asks_.erase(price);
-                } else {
-                    local_asks_[price] = qty;
-                }
-            }
-
-            // 打印简易日志（可选，生产环境建议移除）
-            // std::cout << "[Binance] Top Bid: " << local_bids_.rbegin()->first << std::endl;
-        }
-    } catch (const std::exception& e) {
-        std::cerr << "[Binance] JSON Parse Error: " << e.what() << " | Raw: " << msg.substr(0, 100) << std::endl;
-    }
+  } catch (const std::exception& e) {
+    std::cerr << "[" << name_ << "] Parse error: " << e.what() << std::endl;
+  }
 }
