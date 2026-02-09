@@ -5,32 +5,24 @@
 #include <iostream>
 #include <grpcpp/server_builder.h>
 #include <chrono>
+#include <future>
+#include <boost/asio/use_future.hpp>
 
-// aggregator::aggregator(boost::asio::io_context& ioc) : ioc_(ioc) {}
 Aggregator::Aggregator(boost::asio::io_context& ioc)
     : ioc_(ioc),
       strand_(boost::asio::make_strand(ioc)){}
-// aggregator::~aggregator() = default;
+
+Aggregator::~Aggregator() {
+    if (grpc_server_) {
+        grpc_server_->Shutdown();
+    }
+    if (grpc_thread_.joinable()) {
+        grpc_thread_.join();
+    }
+}
 
 void Aggregator::start() {
-    // connectors_.emplace_back(std::make_shared<binance_connector>(
-    //     ioc_, [this](const std::string& ex, const std::string& msg) {
-    //         on_market_event({ex, msg});
-    //     }));
-
-    // connectors_.emplace_back(std::make_shared<okx_connector>(
-    //     ioc_, [this](const std::string& ex, const std::string& msg) {
-    //         on_market_event({ex, msg});
-    //     }));
-
-    // connectors_.emplace_back(std::make_shared<bitget_connector>(
-    //     ioc_, [this](const std::string& ex, const std::string& msg) {
-    //         on_market_event({ex, msg});
-    //     }));
-
-    // for (auto& c : connectors_) {
-    //     c->start();
-    // }
+    
     connectors_.emplace_back(std::make_shared<binance_connector>(
         ioc_, this, "Binance", "stream.binance.com", "9443", "/ws/btcusdt@depth20@100ms",
         [this](const std::string& ex, const std::string& msg) {
@@ -54,15 +46,6 @@ void Aggregator::start() {
     }
 
     grpc_thread_ = std::thread([this] { start_grpc_server(); });
-}
-
-Aggregator::~Aggregator() {
-    if (grpc_server_) {
-        grpc_server_->Shutdown();
-    }
-    if (grpc_thread_.joinable()) {
-        grpc_thread_.join();
-    }
 }
 
 void Aggregator::on_market_event(const market_event& evt) {
@@ -91,7 +74,7 @@ void Aggregator::update_consolidated_book(market_connector* connector) {
         }
     }
 
-    latest_book_update_ = build_book_update();
+    // latest_book_update_ = build_book_update();
     version_.fetch_add(1, std::memory_order_release);
 
     // 可以在这里加日志或其他通知
@@ -105,9 +88,6 @@ aggregator::BookUpdate Aggregator::build_book_update() {
             std::chrono::system_clock::now().time_since_epoch()
         ).count()
     );
-
-    // 假设 proto 中 symbol 在请求里，这里可以加 request.symbol() 或固定值
-    // update.set_symbol("BTCUSDT");
 
     // 限制深度，例如 50 档
     constexpr int MAX_DEPTH = 150;
@@ -146,30 +126,34 @@ void Aggregator::start_grpc_server() {
 grpc::Status Aggregator::SubscribeBook(grpc::ServerContext* context,
                                        const aggregator::SubscribeRequest* request,
                                        grpc::ServerWriter<aggregator::BookUpdate>* writer) {
-    uint64_t last_version = 0;
+    
+    uint64_t last_seen_version = 0;
 
     while (!context->IsCancelled()) {
-        // 轮询检查 version 是否更新（避免阻塞）
-        uint64_t current = version_.load(std::memory_order_acquire);
-        if (current > last_version) {
-            last_version = current;
+        // 使用 promise / future 等待 strand 执行并获取最新消息
+        std::promise<std::pair<aggregator::BookUpdate, uint64_t>> prom;
+        auto fut = prom.get_future();
 
-            // 在 strand 上安全读取 latest_book_update_
-            aggregator::BookUpdate snapshot;
-            boost::asio::post(strand_, [&]() {
-                snapshot = latest_book_update_;
-            });
+        boost::asio::post(strand_, [&prom, this]() {
+            aggregator::BookUpdate update = build_book_update();
+            uint64_t ver = version_.load(std::memory_order_acquire);
+            prom.set_value({update, ver});
+        });
 
-            // 等待 post 执行完成（同步等待，但粒度很小）
-            // 注意：这里是 gRPC 线程阻塞，但因为 post 很快，通常无感知
-            // 更优雅方式是用异步 gRPC，但当前保持简单
-            std::this_thread::sleep_for(std::chrono::milliseconds(1)); // 避免 CPU 空转
+        auto [update, current_version] = fut.get();  // 阻塞等待完成
 
-            if (!writer->Write(snapshot)) {
+        if (current_version > last_seen_version) {
+            last_seen_version = current_version;
+
+            // protobuf 序列化前确保状态一致（通常不需要，但保险）
+            update.mutable_bids()->Reserve(update.bids_size());
+            update.mutable_asks()->Reserve(update.asks_size());
+
+            if (!writer->Write(update)) {
                 break;
             }
         } else {
-            std::this_thread::sleep_for(std::chrono::milliseconds(10)); // 降低 CPU 使用
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
         }
     }
 

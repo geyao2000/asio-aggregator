@@ -55,7 +55,7 @@ private:
     std::map<double, double> consolidated_asks_;
 
     // 最新 proto 消息（只在 strand 线程写入，其他线程只读快照）
-    aggregator::BookUpdate latest_book_update_;
+    // aggregator::BookUpdate latest_book_update_;
     std::atomic<uint64_t> version_{0};  // 用于客户端判断是否有新数据
 
     std::thread grpc_thread_;
