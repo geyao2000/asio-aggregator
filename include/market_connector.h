@@ -66,8 +66,11 @@ protected:
     std::map<double, double> local_asks_;
 
 private:
+    int retry_count_ = 0;
     net::steady_timer ping_timer_;
     net::steady_timer reconnect_timer_;
+    net::steady_timer handshake_timer_;
+
     void on_resolve(beast::error_code ec, tcp::resolver::results_type results);
     void on_connect(beast::error_code ec, tcp::resolver::results_type::endpoint_type ep);
     void on_ssl_handshake(beast::error_code ec);

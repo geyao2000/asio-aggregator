@@ -4,14 +4,6 @@
 
 using json = nlohmann::json;
 
-// bitget_connector::bitget_connector(net::io_context& ioc, event_callback cb)
-//     : market_connector(ioc,
-//                        "Bitget",
-//                        "ws.bitget.com",
-//                        "443",
-//                     //    "/spot/v1/stream",
-//                        "/v2/ws/public",
-//                        cb) {}
 bitget_connector::bitget_connector(net::io_context& ioc, Aggregator* aggregator, std::string name, std::string host, std::string port, std::string path, event_callback cb)
     : market_connector(ioc, aggregator, name, host, port, path, cb) {}                       
 
