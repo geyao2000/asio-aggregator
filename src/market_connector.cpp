@@ -2,22 +2,6 @@
 #include <iostream>
 #include "Aggregator.h"  // For Aggregator*
 
-// market_connector::market_connector(net::io_context& ioc,
-//                                    std::string name,
-//                                    std::string host,
-//                                    std::string port,
-//                                    std::string path,
-//                                    event_callback cb)
-//     : ioc_(ioc),
-//       name_(std::move(name)),
-//       host_(std::move(host)),
-//       port_(std::move(port)),
-//       path_(std::move(path)),
-//       callback_(std::move(cb)),
-//       resolver_(ioc),
-//       ssl_ctx_(ssl::context::tls_client),
-//       ws_(ioc, ssl_ctx_),
-//       ping_timer_(ioc)
 market_connector::market_connector(net::io_context& ioc, Aggregator* aggregator, std::string name,
                                    std::string host, std::string port, std::string path, event_callback cb)
     : ioc_(ioc),
@@ -100,9 +84,9 @@ void market_connector::on_ws_handshake(beast::error_code ec) {
         do_read();  // Binance 无需订阅消息，直接读
     }
 
-    if (name_ == "Binance") {
+    // if (name_ == "Binance") {
         do_ping();
-    }
+    // }
 }
 
 void market_connector::on_write(beast::error_code ec, std::size_t) {
@@ -125,35 +109,43 @@ void market_connector::on_read(beast::error_code ec, std::size_t bytes_transferr
     do_read();
 }
 
-// void market_connector::do_ping(){
-//     if (stopped_) return;
-
-//     auto self = shared_from_this();
-
-//     ping_timer_.expires_after(std::chrono::seconds(30));
-//     ping_timer_.async_wait(
-//         [this, self](beast::error_code ec)
-//         {
-//             if (stopped_ || ec) return;
-//             ws_.async_ping(websocket::ping_data(""),
-//                 [this, self](beast::error_code ec)
-//                 {
-//                     if (ec) fail(ec, "ping");
-//                     else do_ping();
-//                 });
-//         });
-// }
-
 void market_connector::do_ping() {
   if (stopped_) return;
 
   ping_timer_.expires_after(std::chrono::seconds(30));
   ping_timer_.async_wait([this](beast::error_code ec) {
     if (stopped_ || ec) return;
-    ws_.async_ping(websocket::ping_data("keep-alive"), [this](beast::error_code ec) {
-      if (ec) fail(ec, "ping");
-      else do_ping();
-    });
+    
+    std::string ping_payload;
+
+    if (name_ == "Binance") {
+        // Binance 使用 WebSocket ping (空 payload 即可)
+        ws_.async_ping(websocket::ping_data("keep-alive"), [this](beast::error_code ping_ec) {
+            if (ping_ec) fail(ping_ec, "ping");
+            else do_ping();
+        });
+        return;
+    }
+    // ws_.async_ping(websocket::ping_data("keep-alive"), [this](beast::error_code ec) {
+    //   if (ec) fail(ec, "ping");
+    //   else do_ping();
+    // });
+    else if (name_ == "OKX" || name_ == "Bitget") {
+        // OKX / Bitget 使用 JSON ping
+        ping_payload = R"({"op": "ping"})";
+        ws_.async_write(net::buffer(ping_payload), [this](beast::error_code write_ec, std::size_t) {
+            if (write_ec) {
+                fail(write_ec, "json ping write");
+            } else {
+                std::cout << "[" << name_ << "] Sent JSON ping" << std::endl;
+                do_ping();
+            }
+        });
+        return;
+    }
+    do_ping();
+
+
   });
 }
 
