@@ -1,6 +1,7 @@
 #include "market_connector.h"
 #include <iostream>
 #include "Aggregator.h"  // For Aggregator*
+using namespace std;
 
 market_connector::market_connector(net::io_context& ioc, Aggregator* aggregator, std::string name,
                                    std::string host, std::string port, std::string path, event_callback cb)
@@ -59,6 +60,7 @@ void market_connector::start() {
         [self](beast::error_code ec, tcp::resolver::results_type results) {
             self->on_resolve(ec, results);
         });
+    cout<<"resolve"<<endl;
     
     // retry_count_ = 0;
 }
@@ -134,7 +136,8 @@ void market_connector::on_resolve(beast::error_code ec,
                                   tcp::resolver::results_type results) {
     if (ec) return fail(ec, "resolve");
 
-    std::cout << "[" << name_ << "] DNS resolved successfully" << std::endl;
+    std::cout << "[" << name_ << "] DNS resolved successfully, req connect TCP" << std::endl;
+    
     beast::get_lowest_layer(ws_).async_connect(
         results,
         beast::bind_front_handler(&market_connector::on_connect, this));
@@ -218,6 +221,18 @@ void market_connector::do_read() {
 }
 
 void market_connector::on_read(beast::error_code ec, std::size_t bytes_transferred) {
+    // std::string trimmed = bytes_transferred;
+    // 去除空格/换行
+    // trimmed.erase(std::remove_if(trimmed.begin(), trimmed.end(), ::isspace), trimmed.end());
+
+    // if (trimmed == "pong" || 
+    //     trimmed == "{\"pong\":true}" || 
+    //     trimmed == "{\"event\":\"pong\"}" ||  // 某些交易所格式
+    //     trimmed.find("pong") != std::string::npos) {
+    //     std::cout << "[" << name_ << "] Received pong" << std::endl;
+    //     return;
+    // }
+    
     if (ec) return fail(ec, "read");
 
     std::string msg = beast::buffers_to_string(buffer_.data());
@@ -241,14 +256,11 @@ void market_connector::on_read(beast::error_code ec, std::size_t bytes_transferr
 void market_connector::do_ping() {
   if (stopped_) return;
 
-//   std::cout << "[" << name_ << "] Preparing to send ping in 30s..." << std::endl;
-
-  int ping_lantency = 15;
-//   if (name_ == "Bitget") ping_lantency = 10;
-  ping_timer_.expires_after(std::chrono::seconds(ping_lantency));
+  ping_timer_.expires_after(std::chrono::seconds(17));
   ping_timer_.async_wait([this](beast::error_code ec) {
     if (stopped_ || ec) {
         std::cout << "[" << name_ << "] Ping timer canceled or stopped" << std::endl;
+        ws_.async_close(websocket::close_code::normal, [](beast::error_code){});
         return;
     }
     
@@ -265,7 +277,7 @@ void market_connector::do_ping() {
             }
         });
         return;
-    } else if (name_ == "OKX" || name_ == "Bitget") {
+    } else if (name_ == "OKX" || name_ == "Bybit") {
         // OKX / Bitget 使用 JSON ping
         ws_.text(true);
         ping_payload = R"({"op": "ping"})";
@@ -279,6 +291,28 @@ void market_connector::do_ping() {
         });
         return;
     }  
+    else if (name_ == "Bitget") {
+        auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::system_clock::now().time_since_epoch())
+                        .count();
+
+        std::string ping_payload = R"({"op":"ping","ts":)" + std::to_string(now_ms) + "}";
+
+        // 设置为文本模式
+        ws_.text(true); 
+
+        ws_.async_write(net::buffer(ping_payload),
+            [this](beast::error_code write_ec, std::size_t) {
+            if (write_ec) {
+                fail(write_ec, "json ping write");
+            } else {
+                std::cout << "[" << name_ << "] Sent JSON ping" << std::endl;
+                do_ping();
+            }
+        });
+        return;
+    }
+
 
     std::cout << "[" << name_ << "] No ping configured for this exchange, continuing timer" << std::endl;
     do_ping();
@@ -290,7 +324,7 @@ void market_connector::do_ping() {
 void market_connector::handle_message(const std::string& msg) {
 //   std::cout << "[" << name_ << "] Received market update (length: " << msg.length() << " bytes)" << std::endl;
   
-  callback_(name_, msg);  // Keep printing raw
+//   callback_(name_, msg);  // Keep printing raw
   parse_message(msg);  // Parse and update book
   if (aggregator_) aggregator_->on_book_updated(this);  // Notify
 }

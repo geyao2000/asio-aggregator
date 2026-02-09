@@ -4,15 +4,13 @@
 
 using json = nlohmann::json;
 
-// binance_connector::binance_connector(net::io_context& ioc, event_callback cb)
-//     : market_connector(ioc,
-//                        "Binance",
-//                        "stream.binance.com",
-//                        "9443",
-//                        "/ws/btcusdt@depth20@100ms",
-//                        cb) {}
-
-binance_connector::binance_connector(net::io_context& ioc, Aggregator* aggregator, std::string name, std::string host, std::string port, std::string path, event_callback cb)
+binance_connector::binance_connector(net::io_context& ioc,
+                                     Aggregator* aggregator, 
+                                     std::string name, 
+                                     std::string host, 
+                                     std::string port, 
+                                     std::string path, 
+                                     event_callback cb)
     : market_connector(ioc, aggregator, name, host, port, path, cb) {}        
 
 std::string binance_connector::subscription_message() const {

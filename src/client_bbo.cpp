@@ -88,6 +88,45 @@ public:
                           << "Best Bid: " << COLOR_RED << std::fixed << std::setprecision(2) << bid_price
                           << COLOR_RESET << " @ " << std::fixed << std::setprecision(8) << bid_qty << warning << "\n"
                           << "==============================================\n";
+                if(1){
+                    int max_level = 10;
+                    // std::cout << "Top 10 Asks:\n";
+                    // for (int i = 0; i < std::min(max_level, update.asks_size()); ++i) {
+                    //     const auto& lvl = update.asks(i);
+                    //     std::cout << "  " << std::setw(2) << i+1
+                    //             << " | Price: " << COLOR_BLUE << std::fixed << std::setprecision(2) << lvl.price()
+                    //             << COLOR_RESET
+                    //             << " | Qty: " << std::fixed << std::setprecision(8) << lvl.quantity() << "\n";
+                    // }
+
+                    std::cout << std::fixed << std::setprecision(2);
+
+                    std::cout << "Top 10 Asks:\n";
+                    std::cout << "----------------------------------------------\n";
+
+                    int ask_size = update.asks_size();
+                    int ask_start = std::max(0, ask_size - max_level);  // 最多取最后 10 个（最低价）
+
+                    // 从最低价（第10个）开始输出，序号从 10 递减到 1（最高价在最后）
+                    int display_num = 1;
+                    for (int i = max_level ; i >0 ; --i) {
+                        const auto& lvl = update.asks(i);
+                        std::cout << "  " << std::setw(2) << (max_level - display_num + 1)
+                                << " | Price: " << COLOR_BLUE << std::setprecision(2) << lvl.price() << COLOR_RESET
+                                << " | Qty: " << std::setprecision(8) << lvl.quantity() << "\n";
+                        display_num++;
+                    }
+                    std::cout << "----------------------------------------------\n";
+                    std::cout << "Top 10 Bids:\n";
+                    for (int i = 0; i < std::min(max_level, update.bids_size()); ++i) {
+                        const auto& lvl = update.bids(i);
+                        std::cout << "  " << std::setw(2) << i+1
+                                << " | Price: " << COLOR_RED << std::fixed << std::setprecision(2) << lvl.price()
+                                << COLOR_RESET
+                                << " | Qty: " << std::fixed << std::setprecision(8) << lvl.quantity() << "\n";
+                    }
+                    std::cout << "==============================================\n";
+                }
                 // 读取成功，重置重试计数
                 retry_count = 0;
             }

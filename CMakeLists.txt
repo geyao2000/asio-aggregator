@@ -30,7 +30,8 @@ add_executable(aggregator
   src/market_connector.cpp
   src/binance_connector.cpp
   src/okx_connector.cpp
-  src/bitget_connector.cpp
+  # src/bitget_connector.cpp
+  src/bybit_connector.cpp
   ${CMAKE_CURRENT_BINARY_DIR}/aggregator.pb.cc
   ${CMAKE_CURRENT_BINARY_DIR}/aggregator.grpc.pb.cc
 )

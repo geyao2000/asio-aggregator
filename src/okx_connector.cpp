@@ -4,15 +4,13 @@
 
 using json = nlohmann::json;
 
-// okx_connector::okx_connector(net::io_context& ioc, event_callback cb)
-//     : market_connector(ioc,
-//                        "OKX",
-//                        "ws.okx.com",
-//                        "8443",
-//                        "/ws/v5/public",
-//                        cb) {}
-
-okx_connector::okx_connector(net::io_context& ioc, Aggregator* aggregator, std::string name, std::string host, std::string port, std::string path, event_callback cb)
+okx_connector::okx_connector(net::io_context& ioc, 
+                             Aggregator* aggregator, 
+                             std::string name, 
+                             std::string host, 
+                             std::string port, 
+                             std::string path, 
+                             event_callback cb)
     : market_connector(ioc, aggregator, name, host, port, path, cb) {}                       
 
 std::string okx_connector::subscription_message() const {

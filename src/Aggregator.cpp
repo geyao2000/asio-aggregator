@@ -1,7 +1,8 @@
 #include "Aggregator.h"
 #include "binance_connector.h"
 #include "okx_connector.h"
-#include "bitget_connector.h"
+// #include "bitget_connector.h"
+#include "bybit_connector.h"
 #include <iostream>
 #include <grpcpp/server_builder.h>
 #include <chrono>
@@ -35,8 +36,14 @@ void Aggregator::start() {
             on_market_event({ex, msg});
         }));
 
-    connectors_.emplace_back(std::make_shared<bitget_connector>(
-        ioc_, this, "Bitget", "ws.bitget.com", "443", "/v2/ws/public",
+    // connectors_.emplace_back(std::make_shared<bitget_connector>(
+    //     ioc_, this, "Bitget", "ws.bitget.com", "443", "/v2/ws/public",
+    //     [this](const std::string& ex, const std::string& msg) {
+    //         on_market_event({ex, msg});
+    //     }));
+
+    connectors_.emplace_back(std::make_shared<bybit_connector>(
+        ioc_, this, "Bybit", "stream.bybit.com", "443", "/v5/public/spot",
         [this](const std::string& ex, const std::string& msg) {
             on_market_event({ex, msg});
         }));
@@ -49,7 +56,7 @@ void Aggregator::start() {
 }
 
 void Aggregator::on_market_event(const market_event& evt) {
-    // std::cout << "[" << evt.exchange << "] Raw: " << evt.message << std::endl;
+    std::cout << "[" << evt.exchange << "] Raw: " << evt.message << std::endl;
 }
 
 // connector 回调时调用这个（异步 post）
@@ -90,7 +97,7 @@ aggregator::BookUpdate Aggregator::build_book_update() {
     );
 
     // 限制深度，例如 50 档
-    constexpr int MAX_DEPTH = 150;
+    constexpr int MAX_DEPTH = 5000;
     int count = 0;
     for (const auto& [price, qty] : consolidated_bids_) {
         if (count++ >= MAX_DEPTH) break;
