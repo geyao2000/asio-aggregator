@@ -83,10 +83,7 @@ void market_connector::on_ws_handshake(beast::error_code ec) {
     } else {
         do_read();  // Binance 无需订阅消息，直接读
     }
-
-    // if (name_ == "Binance") {
-        do_ping();
-    // }
+    do_ping();
 }
 
 void market_connector::on_write(beast::error_code ec, std::size_t) {
@@ -125,12 +122,7 @@ void market_connector::do_ping() {
             else do_ping();
         });
         return;
-    }
-    // ws_.async_ping(websocket::ping_data("keep-alive"), [this](beast::error_code ec) {
-    //   if (ec) fail(ec, "ping");
-    //   else do_ping();
-    // });
-    else if (name_ == "OKX" || name_ == "Bitget") {
+    } else if (name_ == "OKX" || name_ == "Bitget") {
         // OKX / Bitget 使用 JSON ping
         ping_payload = R"({"op": "ping"})";
         ws_.async_write(net::buffer(ping_payload), [this](beast::error_code write_ec, std::size_t) {
