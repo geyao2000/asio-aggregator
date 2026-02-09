@@ -59,14 +59,15 @@ protected:
     beast::flat_buffer buffer_;
     
     bool stopped_ = false;
-    net::steady_timer ping_timer_;
+    
     // net::strand<net::io_context::executor_type> strand_;
 
     std::map<double, double, std::greater<double>> local_bids_;
     std::map<double, double> local_asks_;
 
 private:
-    
+    net::steady_timer ping_timer_;
+    net::steady_timer reconnect_timer_;
     void on_resolve(beast::error_code ec, tcp::resolver::results_type results);
     void on_connect(beast::error_code ec, tcp::resolver::results_type::endpoint_type ep);
     void on_ssl_handshake(beast::error_code ec);

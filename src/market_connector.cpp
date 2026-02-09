@@ -14,7 +14,8 @@ market_connector::market_connector(net::io_context& ioc, Aggregator* aggregator,
       resolver_(ioc),
       ssl_ctx_(ssl::context::tls_client),
       ws_(ioc, ssl_ctx_),
-      ping_timer_(ioc)
+      ping_timer_(ioc),
+      reconnect_timer_(ioc)
 {
     ssl_ctx_.set_options(
         ssl::context::default_workarounds |
@@ -37,8 +38,73 @@ void market_connector::start() {
         beast::bind_front_handler(&market_connector::on_resolve, this));
 }
 
-void market_connector::fail(const beast::error_code& ec, const char* what) {
-    std::cerr << "[" << name_ << "] " << what << ": " << ec.message() << "\n";
+// void market_connector::fail(const beast::error_code& ec, const char* what) {
+//     std::cerr << "[" << name_ << "] " << what << ": " << ec.message() << "\n";
+// }
+void market_connector::fail(const boost::system::error_code& ec, const char* what) {
+    std::cerr << "[" << name_ << "] " << what << ": " << ec.message() 
+              << " (code: " << ec.value() << ")\n";
+
+    if (stopped_) {
+        std::cout << "[" << name_ << "] Already stopped, no reconnect" << std::endl;
+        return;
+    }
+
+    // 先取消所有定时器，避免旧 ping/write 在断开连接上执行
+    beast::error_code ignore_ec;
+    ping_timer_.cancel(ignore_ec);
+    reconnect_timer_.cancel(ignore_ec);
+
+    bool should_reconnect = 
+        ec == net::error::connection_reset ||
+        ec == net::error::connection_aborted ||
+        ec == net::error::eof ||
+        ec == net::error::timed_out ||
+        ec == net::error::operation_aborted ||
+        ec == websocket::error::closed ||
+        ec.category() == net::ssl::error::get_stream_category();
+
+    if (should_reconnect) {
+        constexpr int MAX_RETRY = 10;
+        constexpr int MAX_BACKOFF_MS = 30000;
+        constexpr int INITIAL_BACKOFF_MS = 1000;
+        constexpr double BACKOFF_MULTIPLIER = 2.0;
+
+        static int retry_count = 0;
+        retry_count++;
+
+        if (retry_count > MAX_RETRY) {
+            std::cerr << "[" << name_ << "] Max retries reached, stopping reconnect.\n";
+            stopped_ = true;
+            return;
+        }
+
+        int backoff_ms = std::min(
+            static_cast<int>(INITIAL_BACKOFF_MS * std::pow(BACKOFF_MULTIPLIER, retry_count - 1)),
+            MAX_BACKOFF_MS
+        );
+
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_real_distribution<> dis(0.8, 1.2);
+        backoff_ms = static_cast<int>(backoff_ms * dis(gen));
+
+        std::cout << "[" << name_ << "] Reconnecting in " << backoff_ms / 1000.0 
+                  << " seconds... (attempt " << retry_count << "/" << MAX_RETRY << ")\n";
+
+        reconnect_timer_.expires_after(std::chrono::milliseconds(backoff_ms));
+        reconnect_timer_.async_wait([this](beast::error_code timer_ec) {
+            if (timer_ec || stopped_) {
+                std::cout << "[" << name_ << "] Reconnect timer canceled or stopped" << std::endl;
+                return;
+            }
+            std::cout << "[" << name_ << "] Starting reconnect..." << std::endl;
+            start();  // 重新启动连接
+        });
+    } else {
+        std::cerr << "[" << name_ << "] Fatal error, no reconnect: " << ec.message() << "\n";
+        stopped_ = true;
+    }
 }
 
 void market_connector::on_resolve(beast::error_code ec,
