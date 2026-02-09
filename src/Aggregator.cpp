@@ -49,7 +49,7 @@ void Aggregator::start() {
 }
 
 void Aggregator::on_market_event(const market_event& evt) {
-    std::cout << "[" << evt.exchange << "] Raw: " << evt.message << std::endl;
+    // std::cout << "[" << evt.exchange << "] Raw: " << evt.message << std::endl;
 }
 
 // connector 回调时调用这个（异步 post）
