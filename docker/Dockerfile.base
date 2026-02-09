@@ -1,0 +1,112 @@
+# ==========================================
+# 第一阶段：编译环境 (Builder Stage)
+# ==========================================
+FROM ubuntu:22.04 AS builder
+
+# 1. 设置环境变量，避免安装过程中的交互提示
+ENV DEBIAN_FRONTEND=noninteractive
+
+# 2. 安装你清单中的所有基础构建库
+# 分类排列以便于维护，最后清理缓存减小镜像层体积
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    tzdata \
+    libssl3 \
+    build-essential \
+    cmake \
+    git \
+    autoconf \
+    libtool \
+    pkg-config \
+    libssl-dev \
+    libboost-system-dev \
+    libboost-thread-dev \
+    libboost-chrono-dev \
+    libboost-date-time-dev \
+    libboost-tools-dev \
+    zlib1g-dev \
+    libc-ares-dev \
+    curl \
+    ca-certificates \
+    libsystemd-dev \
+    xz-utils \
+    nlohmann-json3-dev \
+    libicu-dev \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /deps
+
+# 3. 编译安装 Abseil (gRPC 强依赖版本)
+RUN git clone --depth 1 -b 20230802.1 https://github.com/abseil/abseil-cpp /tmp/abseil && \
+    cd /tmp/abseil && \
+    mkdir build && \
+    cd build && \
+    cmake \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_CXX_STANDARD=17 \
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+        -DCMAKE_INSTALL_PREFIX=/usr/local \
+        -DBUILD_SHARED_LIBS=ON \
+        -DABSL_PROPAGATE_CXX_STD=ON \
+        -DABSL_ENABLE_INSTALL=ON \
+        .. && \
+    make -j$(nproc) && \
+    make install && \
+    ldconfig &&\
+    rm -rf /tmp/abseil
+
+# 4. 编译安装 Protobuf v25.3
+RUN git clone --depth 1 -b v25.3 https://github.com/protocolbuffers/protobuf /tmp/protobuf && \
+    cd /tmp/protobuf && \
+    git submodule update --init --recursive && \
+    mkdir build && cd build && \
+    cmake .. \
+        -DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_INSTALL_PREFIX=/usr/local \
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+        -Dprotobuf_BUILD_TESTS=OFF \
+        -Dprotobuf_INSTALL=ON \
+        -Dprotobuf_ABSL_PROVIDER=package \
+        && \
+    make -j$(nproc) && \
+    make install && \
+    ldconfig && \
+    rm -rf /tmp/protobuf
+
+# 5. 编译安装 gRPC v1.62.0 (适配 OpenSSL 3.0 和 c-ares)
+# RUN git clone -b v1.62.0 https://github.com && \
+# RUN git clone -b v1.62.0 --recursive --depth 1 --shallow-submodules https://github.com /tmp/grpc && \
+# RUN git clone --depth 1 --shallow-submodules -b v1.62.0 --recursive https://github.com /tmp/grpc && \
+# RUN git clone --recurese-submodules https://github.com/grpc/grpc /tmp/grpc && \
+RUN git clone -b v1.62.0 --recurse-submodules https://github.com/grpc/grpc /tmp/grpc && \
+    cd /tmp/grpc && \
+    # git submodule update --init --recursive && \
+    mkdir -p cmake/build && cd cmake/build && \
+    cmake ../.. \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_CXX_FLAGS="-w" \
+        -DCMAKE_C_FLAGS="-w" \
+        -DCMAKE_INSTALL_PREFIX=/usr/local \
+        -DgRPC_INSTALL=ON \
+        -DgRPC_BUILD_TESTS=OFF \
+        -DgRPC_BUILD_CSHARP_EXTS=OFF \
+        -DgRPC_BUILD_GRPC_CSHARP_PLUGIN=OFF \
+        -DgRPC_BUILD_GRPC_NODE_PLUGIN=OFF \
+        -DgRPC_BUILD_GRPC_OBJECTIVE_C_PLUGIN=OFF \
+        -DgRPC_BUILD_GRPC_PHP_PLUGIN=OFF \
+        -DgRPC_BUILD_GRPC_PYTHON_PLUGIN=OFF \
+        -DgRPC_BUILD_GRPC_RUBY_PLUGIN=OFF \
+        -DgRPC_CARES_PROVIDER=package \
+        -DgRPC_ABSL_PROVIDER=package \
+        -DgRPC_PROTOBUF_PROVIDER=package \
+        -DgRPC_SSL_PROVIDER=package \
+        -DgRPC_ZLIB_PROVIDER=package && \
+    make -j$(nproc) &&\
+    make install &&\
+    ldconfig && \
+    rm -rf /tmp/grpc
+
+# 5. 金融级应用设置：时区统一为 UTC，确保证书可用
+ENV TZ=UTC
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone

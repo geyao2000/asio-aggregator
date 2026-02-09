@@ -45,28 +45,40 @@ target_link_libraries(aggregator
   nlohmann_json::nlohmann_json
 )
 
-add_executable(bbo_client
-  src/bbo_client.cpp
+add_executable(client_bbo
+  src/client_bbo.cpp
   ${CMAKE_CURRENT_BINARY_DIR}/aggregator.pb.cc
   ${CMAKE_CURRENT_BINARY_DIR}/aggregator.grpc.pb.cc
 )
-target_link_libraries(bbo_client gRPC::grpc++ protobuf::libprotobuf)
+target_link_libraries(client_bbo gRPC::grpc++ protobuf::libprotobuf)
 
-add_executable(volume_bands_client
-  src/volume_bands_client.cpp
+add_executable(client_volume_bands
+  src/client_volume_bands.cpp
   ${CMAKE_CURRENT_BINARY_DIR}/aggregator.pb.cc
   ${CMAKE_CURRENT_BINARY_DIR}/aggregator.grpc.pb.cc
 )
-target_link_libraries(volume_bands_client gRPC::grpc++ protobuf::libprotobuf)
+target_link_libraries(client_volume_bands gRPC::grpc++ protobuf::libprotobuf)
 
-add_executable(price_bands_client
-  src/price_bands_client.cpp
+add_executable(client_price_bands
+  src/client_price_bands.cpp
   ${CMAKE_CURRENT_BINARY_DIR}/aggregator.pb.cc
   ${CMAKE_CURRENT_BINARY_DIR}/aggregator.grpc.pb.cc
 )
-target_link_libraries(price_bands_client gRPC::grpc++ protobuf::libprotobuf)
+target_link_libraries(client_price_bands gRPC::grpc++ protobuf::libprotobuf)
 
-# Similar for volume_bands_client and price_bands_client
+# add_executable(tests src/tests.cpp 
+    # src/binance_connector.cpp src/okx_connector.cpp src/bitget_connector.cpp
+    # # 其他依赖源文件
+    # ${GENERATED_PROTO_FILES}
+# )
 
-# add_executable(tests src/tests.cpp ... ) 
-# target_link_libraries(tests Catch2::Catch2 ... )
+# target_link_libraries(tests PRIVATE Catch2::Catch2WithMain 
+    # Boost::system nlohmann_json::nlohmann_json
+    # # 如果需要 gRPC 等
+# )
+
+# target_include_directories(tests PRIVATE
+    # ${CMAKE_CURRENT_SOURCE_DIR}/include
+    # ${CMAKE_CURRENT_SOURCE_DIR}/src
+    # ${CMAKE_CURRENT_BINARY_DIR}
+# )

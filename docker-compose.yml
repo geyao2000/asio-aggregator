@@ -1,21 +1,56 @@
-version: '3'
+version: '3.8'
 services:
   aggregator:
-    build: .
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.aggregator
+    image: asio-aggregator-service:latest
+    container_name: aggregator
     ports:
       - "50051:50051"
-  bbo_client:
-    build: .
-    command: bbo_client
+    networks:
+      - trading-net
+    restart: unless-stopped
+
+  client-bbo:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.client_bbo
+    image: img_client_bbo:latest
+    container_name: client_bbo
+    command: ["aggregator:50051"]
     depends_on:
       - aggregator
-  volume_bands_client:
-    build: .
-    command: volume_bands_client
+    restart: unless-stopped
+    networks:
+      - trading-net
+
+  client-volume-bands:
+    # 假设 volume-bands 的 Dockerfile 也在 docker/ 目录下
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.client_volume_bands
+    image: img_client_volume_bands:latest      # 建议统一版本号
+    container_name: client_volume_bands
+    command: ["aggregator:50051"]
     depends_on:
       - aggregator
-  price_bands_client:
-    build: .
-    command: price_bands_client
+    networks:
+      - trading-net
+
+  client-price-bands:
+    # 假设 price-bands 的 Dockerfile 也在 docker/ 目录下
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.client_price_bands
+    image: img_client_price_bands:latest       # 建议统一版本号
+    container_name: client_price_bands
+    command: ["aggregator:50051"]
     depends_on:
       - aggregator
+    networks:
+      - trading-net
+
+networks:
+  trading-net:
+    driver: bridge

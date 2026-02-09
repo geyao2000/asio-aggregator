@@ -10,6 +10,11 @@
 #include <vector>
 #include <string>
 
+// ANSI 颜色宏（放在文件顶部）
+#define COLOR_RED     "\033[31m"
+#define COLOR_BLUE    "\033[34m"
+#define COLOR_RESET   "\033[0m"
+
 using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
@@ -78,8 +83,8 @@ public:
 
                 // 输出标题和 BBO
                 std::cout << "=== Price Bands Update @ " << oss_time.str() << " JST ===\n"
-                          << "BBO: Best Bid " << std::fixed << std::setprecision(2) << best_bid
-                          << " | Best Ask " << std::fixed << std::setprecision(2) << best_ask
+                          << "BBO: Best Bid " << std::fixed << std::setprecision(2) << COLOR_RED << best_bid << COLOR_RESET
+                          << " | Best Ask " << std::fixed << std::setprecision(2) << COLOR_BLUE << best_ask << COLOR_RESET
                           << " | Mid " << std::fixed << std::setprecision(2) << mid << "\n"
                           << warning;
 
@@ -91,7 +96,7 @@ public:
 
                 for (int bps : bps_levels) {
                     // Bid side
-                    double bid_target = best_bid * (1.0 - bps / 10000.0);
+                    double bid_target = mid * (1.0 - bps / 10000.0);
                     double bid_cum_vol = 0.0;
                     double bid_closest = 0.0;
                     bool bid_found = false;
@@ -107,7 +112,7 @@ public:
                     }
 
                     // Ask side
-                    double ask_target = best_ask * (1.0 + bps / 10000.0);
+                    double ask_target = mid * (1.0 + bps / 10000.0);
                     double ask_cum_vol = 0.0;
                     double ask_closest = 0.0;
                     bool ask_found = false;

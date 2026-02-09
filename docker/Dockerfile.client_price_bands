@@ -1,0 +1,54 @@
+# ==========================================
+# 第一阶段：编译 Aggregator 业务代码
+# ==========================================
+FROM asio-aggregator-base:latest AS builder
+
+# 设置工作目录
+WORKDIR /app
+COPY . .
+
+RUN rm -rf build && \
+    mkdir -p build && \
+    cd build && \
+    cmake .. -DCMAKE_BUILD_TYPE=Release && \
+    make -j$(nproc)
+
+# ==========================================
+FROM ubuntu:22.04
+
+# 安装运行时必要的动态库 (不带 -dev 的版本)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libssl3 \
+    libboost-system1.74.0 \
+    libboost-thread1.74.0 \
+    libboost-chrono1.74.0 \
+    libboost-date-time1.74.0 \
+    libc-ares2 \
+    ca-certificates \
+    tzdata \
+    && rm -rf /var/lib/apt/lists/*
+
+# 设置时区
+ENV TZ=UTC
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+WORKDIR /app
+
+# 3. 从 builder 阶段拷贝编译好的二进制文件
+# 假设你的程序名叫 aggregator。注意：这里的 --from 现在是 'builder'
+COPY --from=builder /app/build/client_price_bands /app/client_price_bands
+
+# 如果有配置文件也一并拷贝
+
+# 4. 拷贝 /usr/local 下的动态链接库 (这是关键，因为 gRPC/Abseil 在这里)
+# 注意：这里的 --from 现在是 'builder'
+COPY --from=builder /usr/local/lib /usr/local/lib
+RUN ldconfig
+
+# 暴露端口 (根据你的业务端口修改)
+EXPOSE 50051
+
+# 启动命令
+ENTRYPOINT ["/app/client_price_bands"]
+CMD ["aggregator:50051"]
+
