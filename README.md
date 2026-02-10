@@ -59,11 +59,12 @@ This project aggregates depth updates from major crypto exchanges and provides a
 ```
 ## Build Instructions
 
-1. Build the base image (pre-compiled heavy dependencies — only needed once or when deps change)
+### 1. Build the base image (pre-compiled heavy dependencies — only needed once or when deps change)
 ```bash
     sudo docker build --no-cache -f docker/Dockerfile.base -t asio-aggregator-base:latest .
 ```
-or, download from docker hub:
+or
+download from docker hub:
 ```bash
 	sudo docker pull geyao2000/asio-aggregator-base:latest
 ```
@@ -71,17 +72,18 @@ rename:
 ```bash
 	sudo docker tag geyao2000/asio-aggregator-base:latest asio-aggregator-base:latest
 ```
-2. Use docker compose to build everything and start network at once 
+### 2. Use docker compose to build everything and start network at once 
 ```bash
 	cd ~/asio-aggregator && \
 	sudo docker compose up -d --build
 ```
-or if you want to build/run individually
-3. Build aggregator server image
+or 
+if you want to build/run individually
+a) Build aggregator server image
 ```bash
 	sudo docker build -f docker/Dockerfile.aggregator -t asio-aggregator-service:latest .
 ```
-4. Build the three clients imgages
+b) Build the three clients imgages
 ```bash
 	sudo docker build -f docker/Dockerfile.client_bbo -t img_client_bbo:latest .
 ```
@@ -91,25 +93,20 @@ or if you want to build/run individually
 ```bash
 	sudo docker build -f docker/Dockerfile.client_volume_bands -t img_volume_price_bands:latest .
 ```
-5. Create Network
+c) Create Network
 ```bash
 	sudo docker network create my-trading-net
 ```
-
 ## Run the System
 
-##### Option 1: (Recommended) Using docker compose 
+### Option 1: (Recommended) Using docker compose 
 ```bash
 	sudo docker compose up -d
 ```
 Starts aggregator server + all three clients.
 Clients automatically connect to aggregator:50051.
-	
-View status:
-```bash
-	sudo docker compose ps
-```
-##### Option 2: Manual runs
+
+### Option 2: Manual runs
 Start aggregator server
 ```bash
 	sudo docker run -d --name aggregator --network my-trading-net -p 50051:50051 asio-aggregator-service:latest
@@ -124,15 +121,19 @@ Start clients (connect to aggregator)
 ```bash
 	sudo docker run -d --name client_volume_bands --network my-trading-net img_client_volume_bands:latest
 ```
-Check Status
-
-1. Check server is running
+## Check Status
+1. Check all status:
+```bash
+	sudo docker compose ps
+```
+or 
+2. Check server is running
 ```bash
 	sudo docker logs -f aggregator
 ```
 Look for "Aggregator gRPC server running on port 50051"
 
-2. Check client logs
+3. Check client logs
 ```bash
 	sudo docker logs -f client_bbo
 ```
@@ -142,12 +143,10 @@ Look for "Aggregator gRPC server running on port 50051"
 ```bash
 	sudo docker logs -f client_price_bands
 ```
-
 ## Stop 
 ```bash	
 	sudo docker compose down
 ```
-
 ## Technical Decisions
 
 1. **OrderBook Data Structure in std::map instead of std::unordered_map**
