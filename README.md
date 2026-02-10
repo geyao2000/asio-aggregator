@@ -50,11 +50,23 @@ This project aggregates depth updates from major crypto exchanges and provides a
 - Git
 - Docker & Docker Compose installed
 
+	sudo apt update
+	sudo apt install docker.io
+	sudo apt install docker-compose-v2
+
 ## Build Instructions
 
 1. Build the base image (pre-compiled heavy dependencies — only needed once or when deps change)
 
     sudo docker build --no-cache -f docker/Dockerfile.base -t asio-aggregator-base:latest .
+
+or, download from docker hub:
+
+	sudo docker pull geyao2000/asio-aggregator-base:latest
+
+rename:
+
+	sudo docker tag geyao2000/asio-aggregator-base:latest asio-aggregator-base:latest
 
 2. Use docker compose to build everything and start network at once 
 
