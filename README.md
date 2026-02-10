@@ -84,7 +84,11 @@ or if you want to build/run individually
 4. Build the three clients imgages
 ```bash
 	sudo docker build -f docker/Dockerfile.client_bbo -t img_client_bbo:latest .
+```
+```bash
 	sudo docker build -f docker/Dockerfile.client_price_bands -t img_client_price_bands:latest .
+```
+```bash
 	sudo docker build -f docker/Dockerfile.client_volume_bands -t img_volume_price_bands:latest .
 ```
 5. Create Network
@@ -113,7 +117,11 @@ Start aggregator server
 Start clients (connect to aggregator)
 ```bash
 	sudo docker run -d --name client_bbo --network my-trading-net img_client_bbo:latest
+```
+```bash
 	sudo docker run -d --name client_price_bands --network my-trading-net img_client_price_bands:latest
+```
+```bash
 	sudo docker run -d --name client_volume_bands --network my-trading-net img_client_volume_bands:latest
 ```
 Check Status
@@ -124,15 +132,15 @@ Check Status
 ```
 Look for "Aggregator gRPC server running on port 50051"
 
-2. Test subscription (requires grpcurl)
+2. Check client logs
 ```bash
-	grpcurl -plaintext -d '{}' localhost:50051 aggregator.AggregatorService/SubscribeBook
+	sudo docker logs -f client_bbo
 ```
-You should see real-time BookUpdate messages (timestamp_ms + bids/asks).
-
-3. Check client logs
 ```bash
-	sudo docker logs -f client-bbo
+	sudo docker logs -f client_volume_bands
+```
+```bash
+	sudo docker logs -f client_price_bands
 ```
 
 ## Stop 
