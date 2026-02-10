@@ -24,7 +24,7 @@ public:
     explicit Aggregator(boost::asio::io_context& ioc);
     ~Aggregator();
 
-    void start();
+    void start(const std::string& config_file_path);
 
     // 被 connector 调用，异步 post 到 strand 处理
     void on_book_updated(market_connector* connector);

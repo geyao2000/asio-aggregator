@@ -8,6 +8,9 @@
 #include <chrono>
 #include <future>
 #include <boost/asio/use_future.hpp>
+#include <fstream>
+#include <nlohmann/json.hpp>
+
 
 Aggregator::Aggregator(boost::asio::io_context& ioc)
     : ioc_(ioc),
@@ -22,31 +25,42 @@ Aggregator::~Aggregator() {
     }
 }
 
-void Aggregator::start() {
+void Aggregator::start(const std::string& config_file_path) {
     
-    connectors_.emplace_back(std::make_shared<binance_connector>(
-        ioc_, this, "Binance", "stream.binance.com", "9443", "/ws/btcusdt@depth20@100ms",
-        [this](const std::string& ex, const std::string& msg) {
-            on_market_event({ex, msg});
-        }));
+    std::ifstream file(config_file_path);
+    if (!file.is_open()) {
+        throw std::runtime_error("Cannot open connectors.json" + config_file_path);
+    }
+    nlohmann::json config_json;
+    file >> config_json;
 
-    connectors_.emplace_back(std::make_shared<okx_connector>(
-        ioc_, this, "OKX", "ws.okx.com", "8443", "/ws/v5/public",
-        [this](const std::string& ex, const std::string& msg) {
-            on_market_event({ex, msg});
-        }));
-
-    // connectors_.emplace_back(std::make_shared<bitget_connector>(
-    //     ioc_, this, "Bitget", "ws.bitget.com", "443", "/v2/ws/public",
-    //     [this](const std::string& ex, const std::string& msg) {
-    //         on_market_event({ex, msg});
-    //     }));
-
-    connectors_.emplace_back(std::make_shared<bybit_connector>(
-        ioc_, this, "Bybit", "stream.bybit.com", "443", "/v5/public/spot",
-        [this](const std::string& ex, const std::string& msg) {
-            on_market_event({ex, msg});
-        }));
+    for (const auto& c : config_json) {
+        std::string name = c["name"];
+        std::string host = c["host"];
+        std::string port = c["port"];
+        std::string path = c["path"];
+        if (name == "Binance") {
+            connectors_.emplace_back(std::make_shared<binance_connector>(
+                ioc_, this, name, host, port, path,
+                [this](const std::string& ex, const std::string& msg) {
+                    on_market_event({ex, msg});
+                }));
+        } else if (name == "OKX") {
+            connectors_.emplace_back(std::make_shared<okx_connector>(
+                ioc_, this, name, host, port, path,
+                [this](const std::string& ex, const std::string& msg) {
+                    on_market_event({ex, msg});
+                }));
+        } else if (name == "Bybit") {
+            connectors_.emplace_back(std::make_shared<bybit_connector>(
+                ioc_, this, name, host, port, path,
+                [this](const std::string& ex, const std::string& msg) {
+                    on_market_event({ex, msg});
+                }));
+        }else {
+            std::cerr << "Unknown connector name: " << name << std::endl;
+        }
+    }
 
     for (auto& c : connectors_) {
         c->start();
@@ -119,6 +133,28 @@ aggregator::BookUpdate Aggregator::build_book_update() {
 
 void Aggregator::start_grpc_server() {
     std::string server_address("0.0.0.0:50051");
+
+    // 检查端口是否被占用（可选，但有用）
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock == -1) {
+        std::cerr << "Failed to create socket for port check: " << strerror(errno) << std::endl;
+        return;
+    }
+
+    sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(50051);
+    addr.sin_addr.s_addr = INADDR_ANY;
+
+    if (bind(sock, (sockaddr*)&addr, sizeof(addr)) == -1) {
+        std::cerr << "Port 50051 already in use! Exiting." << std::endl;
+        std::cerr << "Error: " << strerror(errno) << " (code: " << errno << ")" << std::endl;
+        close(sock);
+        exit(1);
+        return;
+    }
+    close(sock);
 
     grpc::ServerBuilder builder;
     builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());

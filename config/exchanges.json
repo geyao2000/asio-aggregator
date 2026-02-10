@@ -1,0 +1,20 @@
+[
+  {
+    "name": "Binance",
+    "host": "stream.binance.com",
+    "port": "9443",
+    "path": "/ws/btcusdt@depth20@100ms"
+  },
+  {
+    "name": "OKX",
+    "host": "ws.okx.com",
+    "port": "8443",
+    "path": "/ws/v5/public"
+  },
+  {
+    "name": "Bybit",
+    "host": "stream.bybit.com",
+    "port": "443",
+    "path": "/v5/public/spot"
+  }
+]

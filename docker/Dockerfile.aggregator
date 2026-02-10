@@ -42,6 +42,7 @@ WORKDIR /app
 # 3. 从 builder 阶段拷贝编译好的二进制文件
 # 假设你的程序名叫 aggregator。注意：这里的 --from 现在是 'builder'
 COPY --from=builder /app/build/aggregator /app/aggregator
+COPY config/exchanges.json /app/exchanges.json
 
 # 如果有配置文件也一并拷贝
 
@@ -54,4 +55,4 @@ RUN ldconfig
 EXPOSE 50051
 
 # 启动命令
-ENTRYPOINT ["./aggregator"]
+ENTRYPOINT ["./aggregator", "exchanges.json"]
