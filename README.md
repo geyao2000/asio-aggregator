@@ -122,13 +122,13 @@ Check Status
 ```bash
 	sudo docker logs -f aggregator
 ```
-	# Look for "Aggregator gRPC server running on port 50051"
+Look for "Aggregator gRPC server running on port 50051"
 
 2. Test subscription (requires grpcurl)
 ```bash
 	grpcurl -plaintext -d '{}' localhost:50051 aggregator.AggregatorService/SubscribeBook
 ```
-		You should see real-time BookUpdate messages (timestamp_ms + bids/asks).
+You should see real-time BookUpdate messages (timestamp_ms + bids/asks).
 
 3. Check client logs
 ```bash
