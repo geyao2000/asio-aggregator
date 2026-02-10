@@ -70,6 +70,7 @@ rename:
 
 2. Use docker compose to build everything and start network at once 
 
+	cd ~/asio-aggregator && \
 	sudo docker compose up -d --build
 
 or if you want to build/run individually
