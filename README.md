@@ -47,12 +47,15 @@ This project aggregates depth updates from major crypto exchanges and provides a
 
 ## Prerequisites
 
-- Git
 - Docker & Docker Compose installed
 
 	sudo apt update && \
 	sudo apt install docker.io && \
 	sudo apt install docker-compose-v2
+
+- Git
+
+	git clone https://github.com/geyao2000/asio-aggregator.git
 
 ## Build Instructions
 
