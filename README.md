@@ -128,7 +128,7 @@ or if you want to build/run individually
 	```bash
 		grpcurl -plaintext -d '{}' localhost:50051 aggregator.AggregatorService/SubscribeBook
 	```
-		#You should see real-time BookUpdate messages (timestamp_ms + bids/asks).
+		You should see real-time BookUpdate messages (timestamp_ms + bids/asks).
 
 	3. Check client logs
 	```bash
@@ -136,63 +136,65 @@ or if you want to build/run individually
 	```
 
 ## Stop 
-```bash
-	sudo docker compose down
+```bash	
+		sudo docker compose down
 ```
 ## Technical Decisions
 
-	1. OrderBook Data Structure in std::map instead of std::unordered_map
+1. **OrderBook Data Structure in std::map instead of std::unordered_map**
 
-		Efficiency in calculation: 
-			Red-Black Tree, automatically sorts keys (prices). consolidated_bids_ uses std::greater<double> to keep the highest bid at begin(), consolidated_asks_ uses the default ascending order to keep the lowest ask at begin(). More efficient calculation with price bands and volume bands. In contrast, an unordered_map would require a full O(N(log N)) sort for every update, which is prohibitive in low-latency systems.
-		
-		Memory Allocation Overhead: 
-			As a node-based container, std::map triggers a heap allocation (new) for every new price level, potentially leading to memory fragmentation and cache misses.
-		
-	2. Multi-threaded vs Boost.Beast/Asio
-		
-		Apply Beast/Asio. Multiple CEX connector compete for consolidated_mutex_. gRPC streaming threads(BBO, Volume/Price Bands) lock mutex to read; under high market volatility, mutex contention becomes a significant bottleneck. Beast has: Asynchorous architecture, event-driven design, non-blocking model. 
+   * **Efficiency in calculation:**
+     Red-Black Tree, automatically sorts keys (prices). consolidated_bids_ uses std::greater<double> to keep the highest bid at begin(), consolidated_asks_ uses the default ascending order to keep the lowest ask at begin(). More efficient calculation with price bands and volume bands. In contrast, an unordered_map would require a full O(N(log N)) sort for every update, which is prohibitive in low-latency systems.
 			
-	3. Data process vs network load
-	
-		Aggregator only consolidate CEX's data, pushing stream to clients with no storing or processing. This simplicity makes the ultra fast speed and the architecture easier to maintain. Also it reduced resource overhead.
-		The high network load does reduce upper limit of the connectivity. However, here we have only  4 CEX and 3 clients. When the number goes up we will need to balance calculation and the bandwidth.
-	
-	4. Multi-stage builds 
+   * **Memory Allocation Overhead:**
+     As a node-based container, std::map triggers a heap allocation (new) for every new price level, potentially leading to memory fragmentation and cache misses.
 		
-		Heavy compilation in builder stage, runtime image is minimal (~200MB). Pre-built base image (aggregator-base) — Contains compiled gRPC, Protobuf, Abseil, Boost etc. → fast incremental builds. 
+2. **Multi-threaded vs Boost.Beast/Asio**
 		
-		Independent containers per service — Fault isolation, independent scaling/restart, clear logs/monitoring.
+   Apply Beast/Asio. Multiple CEX connector compete for consolidated_mutex_. gRPC streaming threads(BBO, Volume/Price Bands) lock mutex to read; under high market volatility, mutex contention becomes a significant bottleneck. Beast has: Asynchorous architecture, event-driven design, non-blocking model. 
+			
+3. **Data process vs network load**
+	
+   Aggregator only consolidate CEX's data, pushing stream to clients with no storing or processing. This simplicity makes the ultra fast speed and the architecture easier to maintain. Also it reduced resource overhead.
+   The high network load does reduce upper limit of the connectivity. However, here we have only 4 CEX and 3 clients. When the number goes up we will need to balance calculation and the bandwidth.
+	
+4. **Multi-stage builds**
 		
-	5. docker-compose 
+   Heavy compilation in builder stage, runtime image is minimal (~200MB). Pre-built base image (aggregator-base) — Contains compiled gRPC, Protobuf, Abseil, Boost etc. → fast incremental builds. 
+		
+   Independent containers per service — Fault isolation, independent scaling/restart, clear logs/monitoring.
+		
+5. **docker-compose**
 	
-		Single command to start everything, automatic dependency ordering (depends_on).
+   Single command to start everything, automatic dependency ordering (depends_on).
 	
-	6. Proto files generated at build time 
+6. **Proto files generated at build time**
 	
-		Keeps source tree clean (generated in build/generated).
+   Keeps source tree clean (generated in build/generated).
 	
-	7. Static linking preference for heavy deps 
+7. **Static linking preference for heavy deps**
 	
-		Reduces runtime dependencies (though dynamic linking used here for compatibility).
+   Reduces runtime dependencies (though dynamic linking used here for compatibility).
 	
-	8. Manual json.hpp download 
+8. **Manual json.hpp download**
 	
-		Avoids FetchContent network issues in Docker.
+   Avoids FetchContent network issues in Docker.
 
-Dependencies
+## Dependencies
 
-	gRPC v1.62.0
+- **aggregator**
+
+- **gRPC v1.62.0**
 	
-	Protobuf v3.25.3
+- **Protobuf v3.25.3**
 	
-	Abseil LTS 20230802.1
+- **Abseil LTS 20230802.1**
 	
-	Boost 1.74+
+- **Boost 1.74+**
 	
-	nlohmann/json v3.11.3
+- **nlohmann/json v3.11.3**
 	
-	Ubuntu 22.04 base
+- **Ubuntu 22.04 base**
 	
 
 	
