@@ -50,8 +50,8 @@ This project aggregates depth updates from major crypto exchanges and provides a
 - Git
 - Docker & Docker Compose installed
 
-	sudo apt update
-	sudo apt install docker.io
+	sudo apt update && \
+	sudo apt install docker.io && \
 	sudo apt install docker-compose-v2
 
 ## Build Instructions
