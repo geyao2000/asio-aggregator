@@ -63,8 +63,7 @@ This project aggregates depth updates from major crypto exchanges and provides a
 ```bash
     sudo docker build --no-cache -f docker/Dockerfile.base -t asio-aggregator-base:latest .
 ```
-or
-download from docker hub:
+or download from docker hub (recommand):
 ```bash
 	sudo docker pull geyao2000/asio-aggregator-base:latest
 ```
@@ -77,13 +76,12 @@ rename:
 	cd ~/asio-aggregator && \
 	sudo docker compose up -d --build
 ```
-or 
-if you want to build/run individually
-a) Build aggregator server image
+- or if you want to build/run individually
+#### a) Build aggregator server image
 ```bash
 	sudo docker build -f docker/Dockerfile.aggregator -t asio-aggregator-service:latest .
 ```
-b) Build the three clients imgages
+#### b) Build the three clients imgages
 ```bash
 	sudo docker build -f docker/Dockerfile.client_bbo -t img_client_bbo:latest .
 ```
@@ -93,7 +91,7 @@ b) Build the three clients imgages
 ```bash
 	sudo docker build -f docker/Dockerfile.client_volume_bands -t img_volume_price_bands:latest .
 ```
-c) Create Network
+####  c) Create Network
 ```bash
 	sudo docker network create my-trading-net
 ```
@@ -122,18 +120,18 @@ Start clients (connect to aggregator)
 	sudo docker run -d --name client_volume_bands --network my-trading-net img_client_volume_bands:latest
 ```
 ## Check Status
-1. Check all status:
+### 1. Check all status:
 ```bash
 	sudo docker compose ps
 ```
 or 
-2. Check server is running
+### 2. Check server logs
 ```bash
 	sudo docker logs -f aggregator
 ```
 Look for "Aggregator gRPC server running on port 50051"
 
-3. Check client logs
+### 3. Check client logs
 ```bash
 	sudo docker logs -f client_bbo
 ```
